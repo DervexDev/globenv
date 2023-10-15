@@ -1,20 +1,30 @@
 # globenv
 Globally set & read environment variables and paths (not just for the current process) on Windows, macOS or Linux.
 
-[![Version badge](https://img.shields.io/crates/v/globenv.svg)](https://crates.io/crates/globenv)
-[![Downloads badge](https://img.shields.io/crates/d/globenv.svg)](https://crates.io/crates/globenv)
-[![License badge](https://img.shields.io/crates/l/globenv.svg)](https://crates.io/crates/globenv)
+<div align='center'>
+  <a href="https://crates.io/crates/globenv"><img alt='Version badge' src='https://img.shields.io/crates/v/globenv.svg'></a>
+  <a href="https://crates.io/crates/globenv"><img alt='Downloads badge' src='https://img.shields.io/crates/d/globenv.svg'></a>
+  <a href="https://crates.io/crates/globenv"><img alt='License badge' src='https://img.shields.io/crates/l/globenv.svg'></a>
+</div>
 
 ## Example:
 ```rust
 use globenv::{set_var, get_var};
-// Set variable
-set_var("key", "value").unwrap();
-// Remove variable
-set_var("key", "").unwrap();
-// Read variable
+
+// Get environment variable
 get_var("key").unwrap();
+// Set environment variable
+set_var("key", "value").unwrap();
+// Remove environment variable
+remove_var("key").unwrap();
+
+// Get all environment paths
+get_paths().unwrap();
+// Set environment path
+set_path("example/path").unwrap();
+// Remove environment path
+remove_var("example/path").unwrap();
 ```
 
-## Credit
+## Credit:
 Based on the [globalenv](https://github.com/nicolasbauw/globalenv) by [@nicolasbauw](https://github.com/nicolasbauw).
