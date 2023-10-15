@@ -63,8 +63,7 @@ impl fmt::Display for EnvError {
 }
 
 #[cfg(target_family = "unix")]
-/// Sets a global environment variable globally and in the current process. Empty value removes environment variable completely.
-pub fn set_var(key: &str, value: &str) -> Result<(), EnvError> {
+fn get_env() -> Result<(String, PathBuf), EnvError> {
 	let home_dir = env::var("HOME")?;
 	let shell_dir = match env::var("SHELL")?.as_str() {
 		"/usr/bin/zsh" => ".zshenv",
@@ -77,6 +76,14 @@ pub fn set_var(key: &str, value: &str) -> Result<(), EnvError> {
 	env_dir.push(shell_dir);
 
 	let env = fs::read_to_string(&env_dir)?;
+
+	Ok((env, env_dir))
+}
+
+#[cfg(target_family = "unix")]
+/// Sets a environment variable globally and in the current process. Empty value removes variable completely.
+pub fn set_var(key: &str, value: &str) -> Result<(), EnvError> {
+	let (env, env_dir) = get_env()?;
 
 	// Set a new env variable
 	if !value.is_empty() {
@@ -128,7 +135,7 @@ pub fn set_var(key: &str, value: &str) -> Result<(), EnvError> {
 }
 
 #[cfg(target_family = "unix")]
-/// Reads the global environment variable.
+/// Gets the environment variable from the current process or global environment.
 pub fn get_var(key: &str) -> Result<Option<String>, EnvError> {
 	let var = env::var(&key);
 
@@ -136,18 +143,7 @@ pub fn get_var(key: &str) -> Result<Option<String>, EnvError> {
 		return Ok(Some(var.unwrap()));
 	}
 
-	let home_dir = env::var("HOME")?;
-	let shell_dir = match env::var("SHELL")?.as_str() {
-		"/usr/bin/zsh" => ".zshenv",
-		"/bin/zsh" => ".zshenv",
-		"/bin/bash" => ".bashrc",
-		_ => return Err(EnvError::ShellError),
-	};
-
-	let mut env_dir = PathBuf::from(home_dir);
-	env_dir.push(shell_dir);
-
-	let env = fs::read_to_string(&env_dir)?;
+	let (env, _) = get_env()?;
 
 	let mut export = String::from("export ");
 	export.push_str(key);
@@ -163,8 +159,74 @@ pub fn get_var(key: &str) -> Result<Option<String>, EnvError> {
 	Ok(Some(end.to_owned()))
 }
 
+#[cfg(target_family = "unix")]
+/// Gets all environment paths from the current process.
+pub fn get_paths() -> Result<Option<String>, EnvError> {
+	let path = env::var("PATH");
+
+	if path.is_ok() {
+		return Ok(Some(path.unwrap()));
+	}
+
+	Ok(None)
+}
+
+#[cfg(target_family = "unix")]
+/// Adds a environment path globally and in the current process.
+pub fn set_path(path: &str) -> Result<(), EnvError> {
+	let (mut env, env_dir) = get_env()?;
+
+	let mut export = String::from("export PATH=");
+	export.push_str(&path);
+	export.push_str("\n");
+
+	env.push_str(&export);
+
+	let mut var = env::var("PATH")?;
+	var.push_str(":");
+	var.push_str(&path);
+
+	fs::write(env_dir, env)?;
+	env::set_var("PATH", var);
+
+	Ok(())
+}
+
+#[cfg(target_family = "unix")]
+/// Removes the environment path globally and in the current process.
+pub fn remove_path(path: &str) -> Result<(), EnvError> {
+	let (env, env_dir) = get_env()?;
+
+	let mut updated_env = String::new();
+
+	let mut export = String::from("export PATH=");
+	export.push_str(&path);
+
+	for line in env.lines() {
+		if !line.contains(&export) {
+			updated_env.push_str(line);
+			updated_env.push_str("\n");
+		}
+	}
+
+	let mut prefix = String::from(":");
+	prefix.push_str(path);
+
+	let mut suffix = String::from(path);
+	suffix.push_str(":");
+
+	let mut var = env::var("PATH")?;
+	var = var.replace(&prefix, "");
+	var = var.replace(&suffix, "");
+
+	fs::write(env_dir, updated_env)?;
+	env::set_var("PATH", var);
+
+	Ok(())
+}
+
 #[cfg(target_os = "windows")]
-/// Sets a global environment variable globally and in the current process. Empty value removes environment variable completely.
+/// Sets a environment variable globally and in the current process. Empty value removes variable completely.
 pub fn set_var(key: &str, value: &str) -> Result<(), EnvError> {
 	let current_user = RegKey::predef(HKEY_CURRENT_USER);
 	let subkey = current_user.open_subkey_with_flags("Environment", KEY_SET_VALUE)?;
@@ -182,8 +244,9 @@ pub fn set_var(key: &str, value: &str) -> Result<(), EnvError> {
 
 	Ok(())
 }
+
 #[cfg(target_os = "windows")]
-/// Reads the global environment variable.
+/// Gets the environment variable from the current process or global environment.
 pub fn get_var(key: &str) -> Result<Option<String>, EnvError> {
 	let var = env::var(&key);
 
