@@ -1,4 +1,3 @@
-#[cfg(target_family = "unix")]
 #[cfg(test)]
 mod tests {
 	#[test]

@@ -17,4 +17,4 @@ get_var("key").unwrap();
 ```
 
 ## Credit
-Based on the [globalenv](https://github.com/nicolasbauw/globalenv) by [@nicolasbauw](https://github.com/nicolasbauw)
+Based on the [globalenv](https://github.com/nicolasbauw/globalenv) by [@nicolasbauw](https://github.com/nicolasbauw).

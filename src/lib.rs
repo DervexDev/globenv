@@ -192,9 +192,12 @@ pub fn get_var(key: &str) -> Result<Option<String>, EnvError> {
 	}
 
 	let current_user = RegKey::predef(HKEY_CURRENT_USER);
-	let subkey = current_user.open_subkey_with_flags("Environment", KEY_SET_VALUE)?;
+	let subkey = current_user.open_subkey_with_flags("Environment", KEY_READ)?;
+	let value: Result<String, std::io::Error> = subkey.get_value(&key);
 
-	println!("{:?}", subkey.get_value(&key));
+	if value.is_ok() {
+		return Ok(Some(value.unwrap()));
+	}
 
-	Ok(())
+	Ok(None)
 }
