@@ -7,17 +7,19 @@
 //
 //! # globenv
 //!
-//! Globally set and read environment variables on Windows, macOS and Linux.
+//! Globally set & read environment variables and paths on Windows, macOS or Linux.
 //!
 //! ## Example:
 //! ```rust
 //! use globenv::{set_var, get_var};
-//! // Set variable
-//! set_var("key", "value").unwrap();
-//! // Remove variable
-//! set_var("key", "").unwrap();
-//! // Read variable
+//! // Environment Variables
 //! get_var("key").unwrap();
+//! set_var("key", "value").unwrap();
+//! remove_var("key").unwrap();
+//! // Environment Paths
+//! get_paths().unwrap();
+//! set_path("example/path").unwrap();
+//! remove_var("example/path").unwrap();
 //! ```
 
 use std::{env, error, fmt};
@@ -81,60 +83,6 @@ fn get_env() -> Result<(String, PathBuf), EnvError> {
 }
 
 #[cfg(target_family = "unix")]
-/// Sets a environment variable globally and in the current process. Empty value removes variable completely.
-pub fn set_var(key: &str, value: &str) -> Result<(), EnvError> {
-	let (env, env_dir) = get_env()?;
-
-	// Set a new env variable
-	if !value.is_empty() {
-		let mut updated_env = String::new();
-
-		let mut export = String::from("export ");
-		export.push_str(key);
-		export.push_str("=");
-
-		for line in env.lines() {
-			if !line.contains(&export) {
-				updated_env.push_str(line);
-				updated_env.push_str("\n");
-			}
-		}
-
-		export.push_str(value);
-		export.push_str("\n");
-		updated_env.push_str(&export);
-
-		fs::write(env_dir, updated_env)?;
-		env::set_var(key, value);
-
-	// Remove the env variable
-	} else {
-		let mut export = String::from("export ");
-		export.push_str(key);
-		export.push_str("=");
-
-		if !env.contains(&export) {
-			env::remove_var(key);
-			return Ok(());
-		}
-
-		let mut updated_env = String::new();
-
-		for line in env.lines() {
-			if !line.contains(key) {
-				updated_env.push_str(line);
-				updated_env.push_str("\n");
-			}
-		}
-
-		fs::write(env_dir, updated_env)?;
-		env::remove_var(key);
-	}
-
-	Ok(())
-}
-
-#[cfg(target_family = "unix")]
 /// Gets the environment variable from the current process or global environment.
 pub fn get_var(key: &str) -> Result<Option<String>, EnvError> {
 	let var = env::var(&key);
@@ -157,6 +105,60 @@ pub fn get_var(key: &str) -> Result<Option<String>, EnvError> {
 	let end = &start[..start.find("\n").unwrap_or_else(|| start.len())];
 
 	Ok(Some(end.to_owned()))
+}
+
+#[cfg(target_family = "unix")]
+/// Sets a environment variable globally and in the current process.
+pub fn set_var(key: &str, value: &str) -> Result<(), EnvError> {
+	let (env, env_dir) = get_env()?;
+
+	let mut updated_env = String::new();
+	let mut export = String::from("export ");
+	export.push_str(key);
+	export.push_str("=");
+
+	for line in env.lines() {
+		if !line.contains(&export) {
+			updated_env.push_str(line);
+			updated_env.push_str("\n");
+		}
+	}
+
+	export.push_str(value);
+	export.push_str("\n");
+	updated_env.push_str(&export);
+
+	fs::write(env_dir, updated_env)?;
+	env::set_var(key, value);
+
+	Ok(())
+}
+
+#[cfg(target_family = "unix")]
+/// Removes the environment variable globally and from the current process.
+pub fn remove_var(key: &str) -> Result<(), EnvError> {
+	let (env, env_dir) = get_env()?;
+
+	let mut export = String::from("export ");
+	export.push_str(key);
+
+	if !env.contains(&export) {
+		env::remove_var(key);
+		return Ok(());
+	}
+
+	let mut updated_env = String::new();
+	for line in env.lines() {
+		if !line.contains(&export) {
+			updated_env.push_str(line);
+			updated_env.push_str("\n");
+		}
+	}
+
+	fs::write(env_dir, updated_env)?;
+	env::remove_var(key);
+
+	Ok(())
 }
 
 #[cfg(target_family = "unix")]
@@ -193,12 +195,11 @@ pub fn set_path(path: &str) -> Result<(), EnvError> {
 }
 
 #[cfg(target_family = "unix")]
-/// Removes the environment path globally and in the current process.
+/// Removes the environment path globally and from the current process.
 pub fn remove_path(path: &str) -> Result<(), EnvError> {
 	let (env, env_dir) = get_env()?;
 
 	let mut updated_env = String::new();
-
 	let mut export = String::from("export PATH=");
 	export.push_str(&path);
 

@@ -7,14 +7,14 @@ mod tests {
 
 	#[test]
 	fn remove_var() {
-		globenv::set_var("test", "").unwrap();
+		globenv::remove_var("test").unwrap();
 	}
 
 	#[test]
 	fn get_var() {
 		println!(
 			"{:?}",
-			globenv::get_var("PATH")
+			globenv::get_var("test")
 				.unwrap()
 				.unwrap_or_else(|| String::from("None"))
 		);

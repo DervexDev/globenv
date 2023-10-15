@@ -1,5 +1,5 @@
 # globenv
-Globally set and read environment variables (and not just for the current process) on Windows, macOS and Linux.
+Globally set & read environment variables and paths (not just for the current process) on Windows, macOS or Linux.
 
 [![Version badge](https://img.shields.io/crates/v/globenv.svg)](https://crates.io/crates/globenv)
 [![Downloads badge](https://img.shields.io/crates/d/globenv.svg)](https://crates.io/crates/globenv)
