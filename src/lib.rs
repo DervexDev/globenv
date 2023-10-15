@@ -7,7 +7,7 @@
 //
 //! # globenv
 //!
-//! Globally set & read environment variables and paths on Windows, macOS or Linux.
+//! Globally set & read environment variables and paths on Windows, macOS or Linux
 //!
 //! ## Example:
 //! ```rust
@@ -80,6 +80,20 @@ fn get_env() -> Result<(String, PathBuf), EnvError> {
 	let env = fs::read_to_string(&env_dir)?;
 
 	Ok((env, env_dir))
+}
+
+#[cfg(target_os = "windows")]
+fn get_env(read_only: bool) -> Result<RegKey, EnvError> {
+	let current_user = RegKey::predef(HKEY_CURRENT_USER);
+	let env: RegKey;
+
+	if read_only {
+		env = current_user.open_subkey_with_flags("Environment", KEY_READ)?;
+	} else {
+		env = current_user.open_subkey_with_flags("Environment", KEY_SET_VALUE)?;
+	}
+
+	Ok(env)
 }
 
 #[cfg(target_family = "unix")]
@@ -212,7 +226,6 @@ pub fn remove_path(path: &str) -> Result<(), EnvError> {
 
 	let mut prefix = String::from(":");
 	prefix.push_str(path);
-
 	let mut suffix = String::from(path);
 	suffix.push_str(":");
 
@@ -227,26 +240,6 @@ pub fn remove_path(path: &str) -> Result<(), EnvError> {
 }
 
 #[cfg(target_os = "windows")]
-/// Sets a environment variable globally and in the current process. Empty value removes variable completely.
-pub fn set_var(key: &str, value: &str) -> Result<(), EnvError> {
-	let current_user = RegKey::predef(HKEY_CURRENT_USER);
-	let subkey = current_user.open_subkey_with_flags("Environment", KEY_SET_VALUE)?;
-
-	// Set a new env variable
-	if !value.is_empty() {
-		subkey.set_value(key, &value)?;
-		env::set_var(key, value);
-
-	// Remove the env variable
-	} else {
-		subkey.delete_value(key)?;
-		env::remove_var(key);
-	}
-
-	Ok(())
-}
-
-#[cfg(target_os = "windows")]
 /// Gets the environment variable from the current process or global environment.
 pub fn get_var(key: &str) -> Result<Option<String>, EnvError> {
 	let var = env::var(&key);
@@ -255,13 +248,102 @@ pub fn get_var(key: &str) -> Result<Option<String>, EnvError> {
 		return Ok(Some(var.unwrap()));
 	}
 
-	let current_user = RegKey::predef(HKEY_CURRENT_USER);
-	let subkey = current_user.open_subkey_with_flags("Environment", KEY_READ)?;
-	let value: Result<String, std::io::Error> = subkey.get_value(&key);
+	let global_env = get_env(true)?;
+	let value: Result<String, std::io::Error> = global_env.get_value(key);
 
 	if value.is_ok() {
 		return Ok(Some(value.unwrap()));
 	}
 
 	Ok(None)
+}
+
+#[cfg(target_os = "windows")]
+/// Sets a environment variable globally and in the current process.
+pub fn set_var(key: &str, value: &str) -> Result<(), EnvError> {
+	let global_env = get_env(false)?;
+
+	global_env.set_value(key, &value)?;
+	env::set_var(key, value);
+
+	Ok(())
+}
+#[cfg(target_os = "windows")]
+/// Removes the environment variable globally and from the current process.
+pub fn remove_var(key: &str) -> Result<(), EnvError> {
+	let global_env = get_env(false)?;
+
+	global_env.delete_value(key)?;
+	env::remove_var(key);
+
+	Ok(())
+}
+
+#[cfg(target_os = "windows")]
+/// Gets all environment paths from the current process.
+pub fn get_paths() -> Result<Option<String>, EnvError> {
+	let path = env::var("PATH");
+
+	if path.is_ok() {
+		return Ok(Some(path.unwrap()));
+	}
+
+	Ok(None)
+}
+
+#[cfg(target_os = "windows")]
+/// Adds a environment path globally and in the current process.
+pub fn set_path(path: &str) -> Result<(), EnvError> {
+	let write_env = get_env(false)?;
+	let read_env = get_env(true)?;
+
+	let mut paths: String = read_env.get_value("Path")?;
+	let mut process_paths = env::var("Path")?;
+
+	if !paths.contains(path) {
+		paths.push_str(";");
+		paths.push_str(&path);
+
+		write_env.set_value("Path", &paths)?;
+	}
+
+	if !process_paths.contains(path) {
+		process_paths.push_str(";");
+		process_paths.push_str(&path);
+
+		env::set_var("Path", process_paths);
+	}
+
+	Ok(())
+}
+
+#[cfg(target_os = "windows")]
+/// Removes the environment path globally and from the current process.
+pub fn remove_path(path: &str) -> Result<(), EnvError> {
+	let write_env = get_env(false)?;
+	let read_env = get_env(true)?;
+
+	let mut prefix = String::from(";");
+	prefix.push_str(path);
+	let mut suffix = String::from(path);
+	suffix.push_str(";");
+
+	let mut paths: String = read_env.get_value("Path")?;
+	let mut process_paths = env::var("Path")?;
+
+	if paths.contains(path) {
+		paths = paths.replace(&prefix, "");
+		paths = paths.replace(&suffix, "");
+
+		write_env.set_value("Path", &paths)?;
+	}
+
+	if process_paths.contains(path) {
+		process_paths = process_paths.replace(&prefix, "");
+		process_paths = process_paths.replace(&suffix, "");
+
+		env::set_var("Path", process_paths);
+	}
+
+	Ok(())
 }

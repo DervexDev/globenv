@@ -1,15 +1,6 @@
 #[cfg(test)]
 mod tests {
-	#[test]
-	fn set_var() {
-		globenv::set_var("test", "123").unwrap();
-	}
-
-	#[test]
-	fn remove_var() {
-		globenv::remove_var("test").unwrap();
-	}
-
+	// Environment Variables
 	#[test]
 	fn get_var() {
 		println!(
@@ -18,6 +9,16 @@ mod tests {
 				.unwrap()
 				.unwrap_or_else(|| String::from("None"))
 		);
+	}
+
+	#[test]
+	fn set_var() {
+		globenv::set_var("test", "123").unwrap();
+	}
+
+	#[test]
+	fn remove_var() {
+		globenv::remove_var("test").unwrap();
 	}
 
 	#[test]
@@ -37,11 +38,7 @@ mod tests {
 		globenv::set_var("test", "456").unwrap();
 	}
 
-	#[test]
-	fn set_path() {
-		globenv::set_path("test/path").unwrap();
-	}
-
+	// Environment Paths
 	#[test]
 	fn get_paths() {
 		println!(
@@ -53,19 +50,74 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg(target_family = "unix")]
+	fn set_path() {
+		globenv::set_path("$HOME/Desktop").unwrap();
+	}
+
+	#[test]
+	#[cfg(target_family = "unix")]
 	fn remove_path() {
-		globenv::remove_path("test/path").unwrap();
+		globenv::remove_path("$HOME/Desktopp").unwrap();
 	}
 
 	#[test]
-	fn add_get_path() {
-		globenv::set_path("test/path").unwrap();
-		println!("{:?}", globenv::get_paths().unwrap().unwrap());
+	#[cfg(target_family = "unix")]
+	fn set_get_path() {
+		globenv::set_path("$HOME/Desktop").unwrap();
+		println!(
+			"{:?}",
+			globenv::get_paths()
+				.unwrap()
+				.unwrap_or_else(|| String::from("None"))
+		);
 	}
 
 	#[test]
+	#[cfg(target_family = "unix")]
 	fn remove_get_path() {
-		globenv::remove_path("test/path").unwrap();
-		println!("{:?}", globenv::get_paths().unwrap().unwrap());
+		globenv::remove_path("$HOME/Desktop").unwrap();
+		println!(
+			"{:?}",
+			globenv::get_paths()
+				.unwrap()
+				.unwrap_or_else(|| String::from("None"))
+		);
+	}
+
+	#[test]
+	#[cfg(target_os = "windows")]
+	fn set_path() {
+		globenv::set_path("%USERPROFILE%\\Desktop\\temp").unwrap();
+	}
+
+	#[test]
+	#[cfg(target_os = "windows")]
+	fn remove_path() {
+		globenv::remove_path("%USERPROFILE%\\Desktop\\temp").unwrap();
+	}
+
+	#[test]
+	#[cfg(target_os = "windows")]
+	fn set_get_path() {
+		globenv::set_path("%USERPROFILE%\\Desktop\\temp").unwrap();
+		println!(
+			"{:?}",
+			globenv::get_paths()
+				.unwrap()
+				.unwrap_or_else(|| String::from("None"))
+		);
+	}
+
+	#[test]
+	#[cfg(target_os = "windows")]
+	fn remove_get_path() {
+		globenv::remove_path("%USERPROFILE%\\Desktop\\temp").unwrap();
+		println!(
+			"{:?}",
+			globenv::get_paths()
+				.unwrap()
+				.unwrap_or_else(|| String::from("None"))
+		);
 	}
 }

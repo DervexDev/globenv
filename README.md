@@ -1,5 +1,5 @@
 # globenv
-Globally set & read environment variables and paths (not just for the current process) on Windows, macOS or Linux.
+Globally set & read environment variables and paths (not just for the current process) on Windows, macOS or Linux
 
 <div align='center'>
   <a href="https://crates.io/crates/globenv"><img alt='Version badge' src='https://img.shields.io/crates/v/globenv.svg'></a>
@@ -27,4 +27,4 @@ remove_var("example/path").unwrap();
 ```
 
 ## Credit:
-Based on the [globalenv](https://github.com/nicolasbauw/globalenv) by [@nicolasbauw](https://github.com/nicolasbauw).
+Based on the [globalenv](https://github.com/nicolasbauw/globalenv) by [@nicolasbauw](https://github.com/nicolasbauw)
