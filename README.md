@@ -9,7 +9,7 @@ Globally set & read environment variables and paths (not just for the current pr
 
 ## Example:
 ```rust
-use globenv::{set_var, get_var};
+use globenv::*;
 
 // Get environment variable
 get_var("key").unwrap();
@@ -23,7 +23,7 @@ get_paths().unwrap();
 // Set environment path
 set_path("example/path").unwrap();
 // Remove environment path
-remove_var("example/path").unwrap();
+remove_path("example/path").unwrap();
 ```
 
 ## Credit:

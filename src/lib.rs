@@ -11,7 +11,7 @@
 //!
 //! ## Example:
 //! ```rust
-//! use globenv::{set_var, get_var};
+//! use globenv::*;
 //! // Environment Variables
 //! get_var("key").unwrap();
 //! set_var("key", "value").unwrap();
@@ -19,8 +19,9 @@
 //! // Environment Paths
 //! get_paths().unwrap();
 //! set_path("example/path").unwrap();
-//! remove_var("example/path").unwrap();
+//! remove_path("example/path").unwrap();
 //! ```
+//! Made with <3 by Dervex, based on globalenv by Nicolas BAUW
 
 use std::{env, error, fmt};
 
@@ -336,13 +337,13 @@ pub fn remove_path(path: &str) -> Result<(), EnvError> {
 	let write_env = get_env(false)?;
 	let read_env = get_env(true)?;
 
+	let mut paths: String = read_env.get_value("Path")?;
+	let mut process_paths = env::var("Path")?;
+
 	let mut prefix = String::from(";");
 	prefix.push_str(path);
 	let mut suffix = String::from(path);
 	suffix.push_str(";");
-
-	let mut paths: String = read_env.get_value("Path")?;
-	let mut process_paths = env::var("Path")?;
 
 	if paths.contains(path) {
 		paths = paths.replace(&prefix, "");
