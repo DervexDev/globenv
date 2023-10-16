@@ -77,23 +77,23 @@ fn get_env() -> Result<(String, PathBuf), EnvError> {
 	let mut env_dir = PathBuf::from(home_dir);
 	env_dir.push(shell_dir);
 
-	let env = fs::read_to_string(&env_dir)?;
+	let global_env = fs::read_to_string(&env_dir)?;
 
-	Ok((env, env_dir))
+	Ok((global_env, env_dir))
 }
 
 #[cfg(target_os = "windows")]
 fn get_env(read_only: bool) -> Result<RegKey, EnvError> {
 	let current_user = RegKey::predef(HKEY_CURRENT_USER);
-	let env: RegKey;
+	let global_env: RegKey;
 
 	if read_only {
-		env = current_user.open_subkey_with_flags("Environment", KEY_READ)?;
+		global_env = current_user.open_subkey_with_flags("Environment", KEY_READ)?;
 	} else {
-		env = current_user.open_subkey_with_flags("Environment", KEY_SET_VALUE)?;
+		global_env = current_user.open_subkey_with_flags("Environment", KEY_SET_VALUE)?;
 	}
 
-	Ok(env)
+	Ok(global_env)
 }
 
 #[cfg(target_family = "unix")]
@@ -105,17 +105,17 @@ pub fn get_var(key: &str) -> Result<Option<String>, EnvError> {
 		return Ok(Some(var.unwrap()));
 	}
 
-	let (env, _) = get_env()?;
+	let (global_env, _) = get_env()?;
 
 	let mut export = String::from("export ");
 	export.push_str(key);
 	export.push_str("=");
 
-	if !env.contains(&export) {
+	if !global_env.contains(&export) {
 		return Ok(None);
 	}
 
-	let start = &env[env.find(&export).unwrap() + export.len()..];
+	let start = &global_env[global_env.find(&export).unwrap() + export.len()..];
 	let end = &start[..start.find("\n").unwrap_or_else(|| start.len())];
 
 	Ok(Some(end.to_owned()))
@@ -124,14 +124,14 @@ pub fn get_var(key: &str) -> Result<Option<String>, EnvError> {
 #[cfg(target_family = "unix")]
 /// Sets a environment variable globally and in the current process.
 pub fn set_var(key: &str, value: &str) -> Result<(), EnvError> {
-	let (env, env_dir) = get_env()?;
+	let (global_env, env_dir) = get_env()?;
 
 	let mut updated_env = String::new();
 	let mut export = String::from("export ");
 	export.push_str(key);
 	export.push_str("=");
 
-	for line in env.lines() {
+	for line in global_env.lines() {
 		if !line.contains(&export) {
 			updated_env.push_str(line);
 			updated_env.push_str("\n");
@@ -151,18 +151,18 @@ pub fn set_var(key: &str, value: &str) -> Result<(), EnvError> {
 #[cfg(target_family = "unix")]
 /// Removes the environment variable globally and from the current process.
 pub fn remove_var(key: &str) -> Result<(), EnvError> {
-	let (env, env_dir) = get_env()?;
+	let (global_env, env_dir) = get_env()?;
 
 	let mut export = String::from("export ");
 	export.push_str(key);
 
-	if !env.contains(&export) {
+	if !global_env.contains(&export) {
 		env::remove_var(key);
 		return Ok(());
 	}
 
 	let mut updated_env = String::new();
-	for line in env.lines() {
+	for line in global_env.lines() {
 		if !line.contains(&export) {
 			updated_env.push_str(line);
 			updated_env.push_str("\n");
@@ -190,20 +190,26 @@ pub fn get_paths() -> Result<Option<String>, EnvError> {
 #[cfg(target_family = "unix")]
 /// Adds a environment path globally and in the current process.
 pub fn set_path(path: &str) -> Result<(), EnvError> {
-	let (mut env, env_dir) = get_env()?;
+	let (mut global_env, env_dir) = get_env()?;
 
 	let mut export = String::from("export PATH=");
 	export.push_str(&path);
-	export.push_str("\n");
 
-	env.push_str(&export);
+	if !global_env.contains(&export) {
+		global_env.push_str(&export);
+		global_env.push_str("\n");
+
+		fs::write(env_dir, global_env)?;
+	}
 
 	let mut var = env::var("PATH")?;
-	var.push_str(":");
-	var.push_str(&path);
 
-	fs::write(env_dir, env)?;
-	env::set_var("PATH", var);
+	if !var.contains(&path) {
+		var.push_str(":");
+		var.push_str(&path);
+
+		env::set_var("PATH", var);
+	}
 
 	Ok(())
 }
@@ -211,30 +217,37 @@ pub fn set_path(path: &str) -> Result<(), EnvError> {
 #[cfg(target_family = "unix")]
 /// Removes the environment path globally and from the current process.
 pub fn remove_path(path: &str) -> Result<(), EnvError> {
-	let (env, env_dir) = get_env()?;
+	let (global_env, env_dir) = get_env()?;
 
-	let mut updated_env = String::new();
 	let mut export = String::from("export PATH=");
 	export.push_str(&path);
 
-	for line in env.lines() {
-		if !line.contains(&export) {
-			updated_env.push_str(line);
-			updated_env.push_str("\n");
+	if global_env.contains(&export) {
+		let mut updated_env = String::new();
+
+		for line in global_env.lines() {
+			if !line.contains(&export) {
+				updated_env.push_str(line);
+				updated_env.push_str("\n");
+			}
 		}
+
+		fs::write(env_dir, updated_env)?;
 	}
 
-	let mut prefix = String::from(":");
-	prefix.push_str(path);
-	let mut suffix = String::from(path);
-	suffix.push_str(":");
-
 	let mut var = env::var("PATH")?;
-	var = var.replace(&prefix, "");
-	var = var.replace(&suffix, "");
 
-	fs::write(env_dir, updated_env)?;
-	env::set_var("PATH", var);
+	if var.contains(&path) {
+		let mut prefix = String::from(":");
+		prefix.push_str(path);
+		let mut suffix = String::from(path);
+		suffix.push_str(":");
+
+		var = var.replace(&prefix, "");
+		var = var.replace(&suffix, "");
+
+		env::set_var("PATH", var);
+	}
 
 	Ok(())
 }
