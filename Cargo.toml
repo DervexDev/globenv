@@ -5,7 +5,7 @@ edition = "2021"
 authors = ["Dervex"]
 repository = "https://github.com/DervexHero/globenv"
 description = "Globally set & read environment variables and paths on Windows, macOS or Linux"
-keywords = ["environment", "variable", "global", "env", "var"]
+keywords = ["environment", "variable", "global", "path", "env"]
 categories = ["config", "os"]
 license = "Apache-2.0"
 
