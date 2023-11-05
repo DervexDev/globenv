@@ -23,10 +23,7 @@
 //! ```
 //! Made with <3 by Dervex, based on globalenv by Nicolas BAUW
 
-use std::{
-	env, error, fmt,
-	io::{self, ErrorKind},
-};
+use std::{env, error, fmt, io};
 
 #[cfg(target_family = "unix")]
 use std::{fs, path::PathBuf};
@@ -129,6 +126,7 @@ pub fn set_var(key: &str, value: &str) -> Result<(), EnvError> {
 
 	let mut updated_env = String::new();
 	let mut export = String::from("export ");
+
 	export.push_str(key);
 	export.push_str("=");
 
@@ -163,6 +161,7 @@ pub fn remove_var(key: &str) -> Result<(), EnvError> {
 	}
 
 	let mut updated_env = String::new();
+
 	for line in global_env.lines() {
 		if !line.contains(&export) {
 			updated_env.push_str(line);
@@ -178,14 +177,8 @@ pub fn remove_var(key: &str) -> Result<(), EnvError> {
 
 #[cfg(target_family = "unix")]
 /// Gets all environment paths from the current process.
-pub fn get_paths() -> Result<Option<String>, EnvError> {
-	let path = env::var("PATH");
-
-	if path.is_ok() {
-		return Ok(Some(path.unwrap()));
-	}
-
-	Ok(None)
+pub fn get_paths() -> Option<String> {
+	env::var("PATH").ok()
 }
 
 #[cfg(target_family = "unix")]
@@ -241,6 +234,7 @@ pub fn remove_path(path: &str) -> Result<(), EnvError> {
 	if var.contains(&path) {
 		let mut prefix = String::from(":");
 		prefix.push_str(path);
+
 		let mut suffix = String::from(path);
 		suffix.push_str(":");
 
@@ -265,7 +259,7 @@ pub fn get_var(key: &str) -> Result<Option<String>, EnvError> {
 	match get_env(true)?.get_value(key) {
 		Ok(value) => Ok(Some(value)),
 		Err(error) => {
-			if error.kind() != ErrorKind::NotFound {
+			if error.kind() != io::ErrorKind::NotFound {
 				return Err(EnvError::IOError);
 			}
 
@@ -290,7 +284,7 @@ pub fn set_var(key: &str, value: &str) -> Result<(), EnvError> {
 pub fn remove_var(key: &str) -> Result<(), EnvError> {
 	match get_env(false)?.delete_value(key) {
 		Err(error) => {
-			if error.kind() != ErrorKind::NotFound {
+			if error.kind() != io::ErrorKind::NotFound {
 				return Err(EnvError::IOError);
 			}
 		}
