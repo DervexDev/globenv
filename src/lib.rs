@@ -13,7 +13,7 @@
 //! ```rust
 //! use globenv::*;
 //! // Environment Variables
-//! get_var("key").unwrap();
+//! get_var("key").unwrap().unwrap();
 //! set_var("key", "value").unwrap();
 //! remove_var("key").unwrap();
 //! // Environment Paths

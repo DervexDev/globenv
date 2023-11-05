@@ -12,7 +12,7 @@ Globally set & read environment variables and paths (not just for the current pr
 use globenv::*;
 
 // Get environment variable
-get_var("key").unwrap();
+get_var("key").unwrap().unwrap();
 // Set environment variable
 set_var("key", "value").unwrap();
 // Remove environment variable
