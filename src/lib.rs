@@ -23,7 +23,10 @@
 //! ```
 //! Made with <3 by Dervex, based on globalenv by Nicolas BAUW
 
-use std::{env, error, fmt};
+use std::{
+	env, error, fmt,
+	io::{self, ErrorKind},
+};
 
 #[cfg(target_family = "unix")]
 use std::{fs, path::PathBuf};
@@ -33,24 +36,21 @@ use winreg::{enums::*, RegKey};
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum EnvError {
-	/// Unsupported shell
 	ShellError,
-	/// IO Error (file or registry operation)
-	IOError,
-	/// Var error (can't get or set variable)
 	VarError,
+	IOError,
 }
 
 impl error::Error for EnvError {}
 
-impl From<std::io::Error> for EnvError {
-	fn from(_: std::io::Error) -> EnvError {
+impl From<io::Error> for EnvError {
+	fn from(_: io::Error) -> EnvError {
 		EnvError::IOError
 	}
 }
 
-impl From<std::env::VarError> for EnvError {
-	fn from(_: std::env::VarError) -> EnvError {
+impl From<env::VarError> for EnvError {
+	fn from(_: env::VarError) -> EnvError {
 		EnvError::VarError
 	}
 }
@@ -58,9 +58,9 @@ impl From<std::env::VarError> for EnvError {
 impl fmt::Display for EnvError {
 	fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
 		formatter.write_str(match self {
-			EnvError::ShellError => "Error: unsupported shell",
-			EnvError::IOError => "Error: failed to perform I/O operation",
-			EnvError::VarError => "Error: failed to get or set env variable",
+			EnvError::ShellError => "unsupported shell",
+			EnvError::VarError => "failed to set env variable",
+			EnvError::IOError => "I/O operation failed",
 		})
 	}
 }
@@ -84,7 +84,7 @@ fn get_env() -> Result<(String, PathBuf), EnvError> {
 }
 
 #[cfg(target_os = "windows")]
-fn get_env(read_only: bool) -> Result<RegKey, EnvError> {
+fn get_env(read_only: bool) -> io::Result<RegKey> {
 	let current_user = RegKey::predef(HKEY_CURRENT_USER);
 	let global_env: RegKey;
 
@@ -262,14 +262,16 @@ pub fn get_var(key: &str) -> Result<Option<String>, EnvError> {
 		return Ok(Some(var.unwrap()));
 	}
 
-	let global_env = get_env(true)?;
-	let value: Result<String, std::io::Error> = global_env.get_value(key);
+	match get_env(true)?.get_value(key) {
+		Ok(value) => Ok(Some(value)),
+		Err(error) => {
+			if error.kind() != ErrorKind::NotFound {
+				return Err(EnvError::IOError);
+			}
 
-	if value.is_ok() {
-		return Ok(Some(value.unwrap()));
+			Ok(None)
+		}
 	}
-
-	Ok(None)
 }
 
 #[cfg(target_os = "windows")]
@@ -282,12 +284,19 @@ pub fn set_var(key: &str, value: &str) -> Result<(), EnvError> {
 
 	Ok(())
 }
+
 #[cfg(target_os = "windows")]
 /// Removes the environment variable globally and from the current process.
 pub fn remove_var(key: &str) -> Result<(), EnvError> {
-	let global_env = get_env(false)?;
+	match get_env(false)?.delete_value(key) {
+		Err(error) => {
+			if error.kind() != ErrorKind::NotFound {
+				return Err(EnvError::IOError);
+			}
+		}
+		_ => (),
+	}
 
-	global_env.delete_value(key)?;
 	env::remove_var(key);
 
 	Ok(())
@@ -295,14 +304,8 @@ pub fn remove_var(key: &str) -> Result<(), EnvError> {
 
 #[cfg(target_os = "windows")]
 /// Gets all environment paths from the current process.
-pub fn get_paths() -> Result<Option<String>, EnvError> {
-	let path = env::var("PATH");
-
-	if path.is_ok() {
-		return Ok(Some(path.unwrap()));
-	}
-
-	Ok(None)
+pub fn get_paths() -> Option<String> {
+	env::var("Path").ok()
 }
 
 #[cfg(target_os = "windows")]
