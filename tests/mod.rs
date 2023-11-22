@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
 	fn test_var() -> &'static str {
-		return "test";
+		"test"
 	}
 
 	fn test_path() -> &'static str {
